@@ -1,8 +1,34 @@
 import json
+import asyncio
 from typing import Any, Dict, List, Optional
 
 from gpt_researcher.actions.retriever import get_retriever, get_default_retriever
+from gpt_researcher.scraper import Scraper
+from gpt_researcher.utils.workers import WorkerPool
 
+async def _scrape_and_map(urls: List[str], scraper: str, max_workers: int) -> Dict[str, str]:
+    # 选择一个通用 UA，避免部分站点拒绝
+    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    s = Scraper(urls, user_agent=user_agent, scraper=scraper, worker_pool=WorkerPool(max_workers))
+    results = await s.run()
+    return {item["url"]: (item.get("raw_content") or "") for item in results}
+
+def _expand_bodies(
+    results: List[Dict[str, Any]],
+    scraper: str = "bs",
+    max_workers: int = 4,
+    max_body_chars: int = 2000,
+) -> List[Dict[str, Any]]:
+    urls = [r.get("href") for r in results if r.get("href")]
+    if not urls:
+        return results
+    content_map = asyncio.run(_scrape_and_map(urls, scraper=scraper, max_workers=max_workers))
+    for r in results:
+        u = r.get("href")
+        if u in content_map and content_map[u]:
+            print("Expanded body for {0}".format(u))
+            r["body"] = content_map[u][:max_body_chars]
+    return results
 
 def run_search(
     query: str,
@@ -10,6 +36,10 @@ def run_search(
     max_results: int = 10,
     query_domains: Optional[List[str]] = None,
     headers: Optional[Dict[str, str]] = None,
+    expand: bool = False,
+    scraper: str = "bs",
+    max_body_chars: int = 2000,
+    max_workers: int = 4,
 ) -> List[Dict[str, Any]]:
     """
     Execute a web search using one of the project's retrievers and return normalized results.
@@ -35,6 +65,9 @@ def run_search(
 
     retriever = retriever_cls(**init_kwargs)
     results = retriever.search(max_results=max_results)
+    if expand:
+      print("Expanding bodies...")
+      results = _expand_bodies(results, scraper=scraper, max_workers=max_workers, max_body_chars=max_body_chars)
     return results
 
 
@@ -65,6 +98,10 @@ if __name__ == "__main__":
         default=[],
         help="Optional header in the form key=value (repeatable)",
     )
+    parser.add_argument("--expand", action="store_true", help="Fetch each href and expand body with page content")
+    parser.add_argument("--scraper", default="bs", choices=["bs","web_base_loader","browser","nodriver","tavily_extract","firecrawl","pdf","arxiv"], help="Scraper backend (default: bs)")
+    parser.add_argument("--max_body_chars", type=int, default=2000, help="Max characters to keep in expanded body")
+    parser.add_argument("--max_workers", type=int, default=4, help="Concurrent scraper workers")
 
     args = parser.parse_args()
 
@@ -80,6 +117,10 @@ if __name__ == "__main__":
         max_results=args.max_results,
         query_domains=args.query_domains,
         headers=headers or None,
+        expand=args.expand,
+        scraper=args.scraper,
+        max_body_chars=args.max_body_chars,
+        max_workers=args.max_workers,
     )
 
     _print_results(results) 
