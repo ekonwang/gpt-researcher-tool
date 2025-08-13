@@ -1,5 +1,6 @@
 import json
 import asyncio
+import time
 from typing import Any, Dict, List, Optional
 
 from gpt_researcher.actions.retriever import get_retriever, get_default_retriever
@@ -32,14 +33,15 @@ def _expand_bodies(
 
 def run_search(
     query: str,
-    retriever_name: str = "tavily",
+    retriever_name: str = "google",
     max_results: int = 10,
     query_domains: Optional[List[str]] = None,
     headers: Optional[Dict[str, str]] = None,
-    expand: bool = False,
+    expand: bool = True,
     scraper: str = "bs",
     max_body_chars: int = 2000,
     max_workers: int = 4,
+    max_retry: int = 3,
 ) -> List[Dict[str, Any]]:
     """
     Execute a web search using one of the project's retrievers and return normalized results.
@@ -64,10 +66,29 @@ def run_search(
         init_kwargs["headers"] = headers
 
     retriever = retriever_cls(**init_kwargs)
-    results = retriever.search(max_results=max_results)
-    if expand:
-      print("Expanding bodies...")
-      results = _expand_bodies(results, scraper=scraper, max_workers=max_workers, max_body_chars=max_body_chars)
+
+    max_retry = 3
+    results = None
+    while max_retry > 0:
+        try:
+            results = retriever.search(max_results=max_results)
+            break
+        except Exception as e:
+            max_retry -= 1
+            if 'protocol' in str(e).lower():
+                print(f"Error: {e}")
+                print('【网络技术性问题】先 sleep 60s 再重试')
+                time.sleep(60)
+            else:
+                print(f"Unexpected error: {e}")
+                raise e
+            
+            if max_retry == 0:
+                raise Exception(f"Failed to retrieve results after 3 retries. Last error: {e}")
+
+    if expand and results:
+        print("Expanding bodies...")
+        results = _expand_bodies(results, scraper=scraper, max_workers=max_workers, max_body_chars=max_body_chars)
     return results
 
 

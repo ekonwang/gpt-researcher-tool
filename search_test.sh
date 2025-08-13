@@ -11,5 +11,5 @@ python -c 'import os,requests; print(os.getenv("ALL_PROXY")); print(requests.get
 # python -m gpt_researcher.search_worker --query "starry night" --retriever google --max_results 3
 
 # python -m gpt_researcher.search_worker --query "starry night" --retriever google --max_results 3 --expand
- 
-python -m gpt_researcher.search_worker --query "starry night" --retriever duckduckgo --max_results 10 --expand 
+
+# python -m gpt_researcher.search_worker --query "starry night" --retriever duckduckgo --max_results 3 --expand --scraper firecrawl
