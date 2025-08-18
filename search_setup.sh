@@ -1,6 +1,6 @@
 if ! conda env list | grep -q "gpt-researcher"; then
-    print_step "Creating conda environment 'gpt-researcher' with Python 3.12..."
-    conda create -n gpt-researcher python==3.10 -y
+    print_step "Creating conda environment 'gpt-researcher' with Python 3.11..."
+    conda create -n gpt-researcher python==3.11 -y
 else
     print_step "Conda environment 'gpt-researcher' already exists"
 fi
