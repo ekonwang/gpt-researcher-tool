@@ -35,6 +35,8 @@ class Scraper:
         self.urls = urls
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
+        # Disable SSL verification to handle certificate issues
+        self.session.verify = False
         self.scraper = scraper
         if self.scraper == "tavily_extract":
             self._check_pkg(self.scraper)
