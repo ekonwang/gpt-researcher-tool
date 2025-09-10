@@ -27,7 +27,7 @@ def _expand_bodies(
     for r in results:
         u = r.get("href")
         if u in content_map and content_map[u]:
-            print("Expanded body for {0}".format(u))
+            # print("Expanded body for {0}".format(u))
             r["body"] = content_map[u][:max_body_chars]
     return results
 
