@@ -117,5 +117,7 @@ class TavilySearch:
             ]
         except Exception as e:
             print(f"Error: {e}. Failed fetching sources. Resulting in empty response.")
+            if 'Payment Required' in str(e):
+                raise ValueError('Please update the TAVILY_API_KEY!!')
             search_response = []
         return search_response
